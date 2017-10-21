@@ -1,0 +1,118 @@
+scriptId = 'mil.army.arl.20150427'
+scriptTitle = "Print Arm Movements"
+scriptDetailsUrl = ""
+programInFocusNow Name = ""
+programInFocusNow Title = ""
+isPrintMovements = false
+timeLastPrinted = 0
+-- When user unlocks the Myo via double-tap, keep it unlocked and
+start printing the movement info.
+-- Stop printing the movements and re-engage the lock when the
+user double-taps again.
+-- Update: 05/12/2015 - Print the pose done by the user (via
+onPoseEdge call-back method) while the onPeriodic() function is
+printing data.
+-- This was added to further help identify the
+hand gesture, because the position data alone was not enough.
+function onForegroundWindowChange(app, title)
+programInFocusNow_Name = app
+programInFocusNow Title = title
+if (platform == "Windows" and app == "Myo Connect.exe")
+then
+ myo.debug("onForegroundWindowChange(app, title) -
+Found. Returning True.")
+ return true
+else
+ return false
+end
+end
+function onUnlock()
+if (isPrintMovements == false) then
+end
+
+myo.debug("Myo is unlocked. Begin printing movements.")
+myo.debug("--------------------- START PRINTING MOVEMENTS -
+------------------------------------")
+myo.debug("ROLL" .. "," .. "PITCH"
+.. "," .. "YAW" .. "," ..
+"xGyro/sec,yGyro/sec,zGyro/sec" .. "," ..
+"xAccel g,yAccel g,zAccel g" .. "," ..
+"xAccelWorld g,yAccelWorld g,zAccelWorld g" .. ","
+.. "X-Direction" .. "," ..
+"xOrientationWorld,yOrientationWorld,zOrientationWorld")
+isPrintMovements = true
+myo.unlock("hold")
+end
+function onPoseEdge(pose, edge)
+pose = conditionallySwapWave(pose)
+11
+if (edge == "on" and pose ~= "rest" and pose ~= "unknown")
+then
+ myo.debug("New Pose Detected: " .. pose)
+end
+
+if (pose == "doubleTap" and edge == "on") then
+ -- Double-Tap stops printing the Myo movements.
+ if (isPrintMovements == true) then -- Myo was
+unlocked and was printing movements. Return locking
+ myo.unlock("timed") -- Lock Myo in ~1
+second
+ myo.debug("Double-tap detected. Stop printing
+movements.")
+ myo.debug("--------------------- STOP PRINTING
+MOVEMENTS -------------------------------------")
+ isPrintMovements = false
+ end
+end
+end
+function onPeriodic()
+local isDesiredPeriodPassed_Print = false
+local msBetweenPrints = 100 -- 100ms = 10
+prints per second.
+local now = myo.getTimeMilliseconds()
+if (now - timeLastPrinted) > msBetweenPrints then
+ isDesiredPeriodPassed Print = true -- It has
+been longer than the period we set. So it's okay to print.
+else
+ isDesiredPeriodPassed Print = false -- Enough
+time hasn't passed. Wait longer before we print.
+end
+
+xGyro,yGyro,zGyro = myo.getGyro()
+local printGyro = xGyro .. "," .. yGyro .. "," .. zGyro
+xAccel,yAccel,zAccel = myo.getAccel()
+local printAccel = xAccel .. "," .. yAccel .. "," .. zAccel
+xAccelWorld,yAccelWorld,zAccelWorld = myo.getAccelWorld()
+local printAccelWorld = xAccelWorld .. "," .. yAccelWorld
+.. "," .. zAccelWorld
+xOrientationWorld,yOrientationWorld,zOrientationWorld =
+myo.getOrientationWorld()
+local printOrientationWorld = xOrientationWorld .. "," ..
+yOrientationWorld .. "," .. zOrientationWorld
+
+if isPrintMovements == true and isDesiredPeriodPassed_Print
+== true then
+ myo.debug(myo.getRoll() .. "," ..
+myo.getPitch() .. "," .. myo.getYaw() ..
+"," .. printGyro ..
+"," .. printAccel ..
+"," .. printAccelWorld
+ .. "," .. myo.getXDirection() .. ","
+.. printOrientationWorld)
+ timeLastPrinted = myo.getTimeMilliseconds()
+end
+12
+end
+function activeAppName()
+ return programInFocusNow Title
+end
+function conditionallySwapWave(pose)
+ if myo.getArm() == "left" then
+ if pose == "waveIn" then
+ pose = "waveOut"
+ elseif pose == "waveOut" then
+ pose = "waveIn"
+ end
+ end
+ return pose
+end
